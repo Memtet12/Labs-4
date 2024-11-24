@@ -1,0 +1,7 @@
+D:\Algos\Test of button\Test of button\bin\Debug\Test of button.exe.config
+D:\Algos\Test of button\Test of button\bin\Debug\Test of button.exe
+D:\Algos\Test of button\Test of button\bin\Debug\Test of button.pdb
+D:\Algos\Test of button\Test of button\obj\Debug\Test of button.csproj.AssemblyReference.cache
+D:\Algos\Test of button\Test of button\obj\Debug\Test of button.csproj.CoreCompileInputs.cache
+D:\Algos\Test of button\Test of button\obj\Debug\Test of button.exe
+D:\Algos\Test of button\Test of button\obj\Debug\Test of button.pdb

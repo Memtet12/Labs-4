@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Threading;
-using Test_of_button._3rd_task;
+using Algorithms;
 
 class Program
 {
-    static void Main()
+    static void Main(string[] args)
     {
-        Visualizer.Run();
-        Console.ReadLine();
+        MenuTask1.Run();
     }
 }

@@ -4,8 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Spectre.Console;
+using Test_of_button;
 
-namespace Test_of_button._3rd_task
+namespace TextSortings
 {
     public static class Visualizer
     {
@@ -14,10 +15,13 @@ namespace Test_of_button._3rd_task
             DisplayHeader();
             string regime = DisplayMainSelection();
             MainSelectionHandler(regime);
+            AnsiConsole.MarkupLine("[green]Нажмите любую клавишу для возврата в меню...[/]");
+            Console.ReadKey();
+            MainMenu.DisplayMainMenu();
 
         }
 
-        public static string DisplayMainSelection()
+        private static string DisplayMainSelection()
         { 
           return AnsiConsole.Prompt(
                 new SelectionPrompt <string>()
@@ -30,7 +34,7 @@ namespace Test_of_button._3rd_task
               
         }
 
-        public static string DisplayFileSelection()
+        private static string DisplayFileSelection()
         {
             string[] files = Misc.GetTexts("..\\..\\Texts");
 
@@ -42,7 +46,7 @@ namespace Test_of_button._3rd_task
                 );
         }
 
-        public static void DisplayHeader()
+        private static void DisplayHeader()
         {
             Console.Clear();
             AnsiConsole.Write(
@@ -51,7 +55,7 @@ namespace Test_of_button._3rd_task
                     .Color(Color.CornflowerBlue));
         }
 
-        public static void MainSelectionHandler(string regime)
+        private static void MainSelectionHandler(string regime)
         {
             if (regime == "Подсчёт слов в тексте")
             {
@@ -64,7 +68,7 @@ namespace Test_of_button._3rd_task
             }
         }
 
-        public static void DrawWordsCount(string file)
+        static void DrawWordsCount(string file)
         {
             var data = Misc.CountWords(file);
 
@@ -72,7 +76,6 @@ namespace Test_of_button._3rd_task
             table.AddColumn("Слово");
             table.AddColumn("Количество упоминаний");
 
-            int i = 0;
             foreach (var word in data)
             {
                 table.AddRow(new[] {word.Item1, word.Item2.ToString()});

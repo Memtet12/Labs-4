@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Spectre.Console;
+using Test_of_button;
 
 namespace Algorithms
 {
@@ -28,7 +29,7 @@ namespace Algorithms
             AnsiConsole.MarkupLine("[blue]Нажмите любую клавишу для возврата в меню...[/]");
             Console.ReadKey();
             log = "";
-            Run(); // Перезапуск программы
+            MainMenu.DisplayMainMenu(); // Выход в главное меню
         }
 
         private static void DisplayHeader()

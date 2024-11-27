@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace Test_of_button._3rd_task
+namespace TextSortings
 {
     public static class Misc
     {

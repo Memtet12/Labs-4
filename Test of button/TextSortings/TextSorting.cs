@@ -8,11 +8,12 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Spectre.Console;
 
-namespace Test_of_button
+namespace TextSortings
+
 {
     public static class TextSorting
     {
-        
+
         public static void BubbleSort(string[] words)
         {
             int size = words.Length;

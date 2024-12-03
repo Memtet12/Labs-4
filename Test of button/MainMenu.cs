@@ -25,7 +25,6 @@ namespace Test_of_button
                   new SelectionPrompt<string>()
                   .AddChoices(new[]
                   {"Алгоритмы внутренней сортировки",
-                  "Внешняя сортировка",
                   "Сортировка текста"}
                   ).HighlightStyle(Color.Gold1)
                   );

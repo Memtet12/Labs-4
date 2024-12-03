@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
+using System.Windows.Documents;
 using Spectre.Console;
 using static System.Collections.Specialized.BitVector32;
 
@@ -63,18 +65,39 @@ namespace Algorithms
             }
         }
 
-        public static void MergeSort(int[] array, int left, int right, int delay, ref string log, ref int actionCounter)
-        {
-            if (left < right)
-            {
-                int middle = (left + right) / 2;
 
-                MergeSort(array, left, middle, delay, ref log, ref actionCounter);
-                MergeSort(array, middle + 1, right, delay, ref log, ref actionCounter);
+       public static void MergeSort(int[] array, int left, int right, int delay, ref string log, ref int actionCounter)
+{
+    if (left < right)
+    {
+        int middle = (left + right) / 2;
 
-                Merge(array, left, middle, right, delay, ref log, ref actionCounter);
-            }
-        }
+        // Логирование начала разбиения массива
+        string splitAction = $"Разбиение массива на подмассивы [{left}..{middle}] и [{middle + 1}..{right}]";
+        log += $"{actionCounter}. {splitAction}\n";
+        actionCounter++;
+        Console.Clear();
+        AnsiConsole.Write(new BarChart()
+            .Width(60)
+            .Label($"[green bold underline]Текущий массив (Разбиение)[/]")
+            .CenterLabel()
+            .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                index >= left && index <= right ?
+                    (index <= middle ? Color.Blue : Color.Yellow) :
+                    Color.Grey))));
+        AnsiConsole.Markup($"[blue]{Markup.Escape(splitAction)}[/]\n");
+        Thread.Sleep(delay*2);
+
+        // Рекурсивный вызов для левого подмассива
+        MergeSort(array, left, middle, delay, ref log, ref actionCounter);
+
+        // Рекурсивный вызов для правого подмассива
+        MergeSort(array, middle + 1, right, delay, ref log, ref actionCounter);
+
+        // Слияние подмассивов
+        Merge(array, left, middle, right, delay, ref log, ref actionCounter);
+    }
+}
 
         private static void Merge(int[] array, int left, int middle, int right, int delay, ref string log, ref int actionCounter)
         {
@@ -93,12 +116,26 @@ namespace Algorithms
                 rightArray[j] = array[middle + 1 + j];
             }
 
-            int k = left;
             int i1 = 0, i2 = 0;
+            int k = left;
+
+            // Начало слияния
+            string mergeStartAction = $"Начало слияния подмассивов [{left}..{middle}] и [{middle + 1}..{right}]";
+            log += $"{actionCounter}. {mergeStartAction}\n";
+            actionCounter++;
+            Console.Clear();
+            AnsiConsole.Write(new BarChart()
+                .Width(60)
+                .Label($"[green bold underline]Текущий массив (Начало слияния)[/]")
+                .CenterLabel()
+                .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                    index >= left && index <= right ? Color.Green : Color.Grey))));
+            AnsiConsole.Markup($"[green]{Markup.Escape(mergeStartAction)}[/]\n");
+            Thread.Sleep(delay);
 
             while (i1 < n1 && i2 < n2)
             {
-                string action = $"Сравнение {left + i1 + 1}-ого элемента и {middle + i2 + 2}-ого => {leftArray[i1]} > {rightArray[i2]}";
+                string action = $"Сравнение {left + i1 + 1}-ого элемента ({leftArray[i1]}) и {middle + i2 + 2}-ого элемента ({rightArray[i2]}) => {leftArray[i1]} > {rightArray[i2]}";
                 log += $"{actionCounter}. {action}\n";
                 actionCounter++;
                 Console.Clear();
@@ -106,42 +143,54 @@ namespace Algorithms
                     .Width(60)
                     .Label($"[green bold underline]Текущий массив (Сравнение)[/]")
                     .CenterLabel()
-                    .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value, index == left + i1 || index == middle + i2 + 1 ? Color.Red : Color.Blue))));
-                AnsiConsole.MarkupLine($"[yellow]{action}[/]");
+                    .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                        index >= left && index <= right ?
+                            (index == k ? Color.Red : (index >= left && index <= middle ? Color.Blue : Color.Yellow)) :
+                            Color.Grey))));
+                AnsiConsole.Markup($"[yellow]{Markup.Escape(action)}[/]\n");
                 Thread.Sleep(delay);
 
                 if (leftArray[i1] <= rightArray[i2])
                 {
                     array[k] = leftArray[i1];
                     i1++;
-                    action = $"Перестановка {left + i1}-ого элемента в {k + 1}-ый => {array[k]}";
-                    log += $"{actionCounter}. {action}\n";
+                    string reason = $"элемент {left + i1 - 1} ({leftArray[i1 - 1]}) меньше элемента {middle + i2} ({rightArray[i2]}), поэтому переставляем";
+                    string swapAction = $"Перестановка {left + i1 - 1}-ого элемента в {k + 1}-ый => {array[k]} ({reason})";
+                    log += $"{actionCounter}. {swapAction}\n";
                     actionCounter++;
                     Console.Clear();
                     AnsiConsole.Write(new BarChart()
                         .Width(60)
                         .Label($"[green bold underline]Текущий массив (Перестановка)[/]")
                         .CenterLabel()
-                        .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value, index == k ? Color.Green : Color.Blue))));
-                    AnsiConsole.MarkupLine($"[green]{action}[/]");
+                        .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                            index >= left && index <= right ?
+                                (index == k ? Color.Green : (index >= left && index <= middle ? Color.Blue : Color.Yellow)) :
+                                Color.Grey))));
+                    AnsiConsole.Markup($"[green]{Markup.Escape(swapAction)}[/]\n");
                     Thread.Sleep(delay);
                 }
                 else
                 {
                     array[k] = rightArray[i2];
                     i2++;
-                    action = $"Перестановка {middle + i2}-ого элемента в {k + 1}-ый => {array[k]}";
-                    log += $"{actionCounter}. {action}\n";
+                    string reason = $"элемент {middle + i2 - 1} ({rightArray[i2 - 1]}) больше элемента {left + i1} ({leftArray[i1]}), поэтому переставляем";
+                    string swapAction = $"Перестановка {middle + i2 - 1}-ого элемента в {k + 1}-ый => {array[k]} ({reason})";
+                    log += $"{actionCounter}. {swapAction}\n";
                     actionCounter++;
                     Console.Clear();
                     AnsiConsole.Write(new BarChart()
                         .Width(60)
                         .Label($"[green bold underline]Текущий массив (Перестановка)[/]")
                         .CenterLabel()
-                        .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value, index == k ? Color.Green : Color.Blue))));
-                    AnsiConsole.MarkupLine($"[green]{action}[/]");
+                        .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                            index >= left && index <= right ?
+                                (index == k ? Color.Green : (index >= left && index <= middle ? Color.Blue : Color.Yellow)) :
+                                Color.Grey))));
+                    AnsiConsole.Markup($"[green]{Markup.Escape(swapAction)}[/]\n");
                     Thread.Sleep(delay);
                 }
+
                 k++;
             }
 
@@ -150,7 +199,7 @@ namespace Algorithms
                 array[k] = leftArray[i1];
                 i1++;
                 k++;
-                string action = $"Перестановка {left + i1}-ого элемента в {k}-ый => {array[k - 1]}";
+                string action = $"Перестановка {left + i1 - 1}-ого элемента в {k}-ый => {array[k - 1]}";
                 log += $"{actionCounter}. {action}\n";
                 actionCounter++;
                 Console.Clear();
@@ -158,8 +207,11 @@ namespace Algorithms
                     .Width(60)
                     .Label($"[green bold underline]Текущий массив (Перестановка)[/]")
                     .CenterLabel()
-                    .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value, index == k - 1 ? Color.Green : Color.Blue))));
-                AnsiConsole.MarkupLine($"[green]{action}[/]");
+                    .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                        index >= left && index <= right ?
+                            (index == k - 1 ? Color.Green : (index >= left && index <= middle ? Color.Blue : Color.Yellow)) :
+                            Color.Grey))));
+                AnsiConsole.Markup($"[green]{Markup.Escape(action)}[/]\n");
                 Thread.Sleep(delay);
             }
 
@@ -168,7 +220,7 @@ namespace Algorithms
                 array[k] = rightArray[i2];
                 i2++;
                 k++;
-                string action = $"Перестановка {middle + i2}-ого элемента в {k}-ый => {array[k - 1]}";
+                string action = $"Перестановка {middle + i2 - 1}-ого элемента в {k}-ый => {array[k - 1]}";
                 log += $"{actionCounter}. {action}\n";
                 actionCounter++;
                 Console.Clear();
@@ -176,18 +228,26 @@ namespace Algorithms
                     .Width(60)
                     .Label($"[green bold underline]Текущий массив (Перестановка)[/]")
                     .CenterLabel()
-                    .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value, index == k - 1 ? Color.Green : Color.Blue))));
-                AnsiConsole.MarkupLine($"[green]{action}[/]");
+                    .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                        index >= left && index <= right ?
+                            (index == k - 1 ? Color.Green : (index >= left && index <= middle ? Color.Blue : Color.Yellow)) :
+                            Color.Grey))));
+                AnsiConsole.Markup($"[green]{Markup.Escape(action)}[/]\n");
                 Thread.Sleep(delay);
             }
 
+            // Конец слияния
+            string mergeEndAction = $"Конец слияния подмассивов [{left}..{middle}] и [{middle + 1}..{right}]";
+            log += $"{actionCounter}. {mergeEndAction}\n";
+            actionCounter++;
             Console.Clear();
             AnsiConsole.Write(new BarChart()
                 .Width(60)
-                .Label($"[green bold underline]Текущий массив (Слияние)[/]")
+                .Label($"[green bold underline]Текущий массив (Конец слияния)[/]")
                 .CenterLabel()
-                .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value, Color.Green))));
-            AnsiConsole.MarkupLine($"[green]Слияние[/]");
+                .AddItems(array.Select((value, index) => new BarChartItem($"{value}", value,
+                    index >= left && index <= right ? Color.Green : Color.Grey))));
+            AnsiConsole.Markup($"[green]{Markup.Escape(mergeEndAction)}[/]\n");
             Thread.Sleep(delay);
         }
 

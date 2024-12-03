@@ -39,164 +39,281 @@ namespace OuterSorting
             if (dialog.ShowDialog() == true)
             {
                 FilePath.Text = dialog.FileName;
+                AddLog($"Выбран файл: {dialog.FileName}");
             }
         }
 
         private async void StartSort_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(FilePath.Text) || string.IsNullOrWhiteSpace(SortColumn.Text))
+            Logs.Text = "Начинается проверка входных данных...\n";
+
+            // Проверка на наличие пути к файлу
+            if (string.IsNullOrWhiteSpace(FilePath.Text))
             {
-                MessageBox.Show("Укажите файл и ключ сортировки!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                AddLog("Ошибка: путь к файлу не указан.");
+                MessageBox.Show("Укажите файл для сортировки!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
+            // Проверка на существование файла
+            if (!File.Exists(FilePath.Text))
+            {
+                AddLog($"Ошибка: файл '{FilePath.Text}' не найден.");
+                MessageBox.Show("Указанный файл не существует!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Проверка на наличие ключа сортировки
+            if (string.IsNullOrWhiteSpace(SortColumn.Text))
+            {
+                AddLog("Ошибка: ключ сортировки не указан.");
+                MessageBox.Show("Укажите ключ сортировки!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Проверка формата ключа сортировки
             if (!int.TryParse(SortColumn.Text, out int sortColumn) || sortColumn < 1)
             {
+                AddLog("Ошибка: ключ сортировки должен быть положительным числом.");
                 MessageBox.Show("Ключ сортировки должен быть положительным числом!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+            // Проверка на наличие задержки 
+            if (string.IsNullOrWhiteSpace(Delay.Text))
+            {
+                AddLog("Ошибка: задержки не указан.");
+                MessageBox.Show("Укажите задержки!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
-            // Размер буфера по умолчанию равен 2
-            int bufferSize = 2;
+            // Проверка формата задержки
+            if (!int.TryParse(Delay.Text, out int delay) || delay < 1)
+            {
+                AddLog("Ошибка: задержка должена быть положительным числом.");
+                MessageBox.Show("Задержка должена быть положительным числом!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
             string inputFile = FilePath.Text;
-            string outputFile = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(inputFile), $"{System.IO.Path.GetFileNameWithoutExtension(inputFile)}_sorted.txt");
 
-            Logs.Text = "Начинается сортировка...\n";
+            // Проверка на пустоту файла
+            if (new FileInfo(inputFile).Length == 0)
+            {
+                AddLog("Ошибка: файл пуст. Невозможно выполнить сортировку.");
+                MessageBox.Show("Файл пуст. Сортировка невозможна!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Проверка корректности индекса столбца
+            bool isIndexValid = await Task.Run(() => ValidateIndex(inputFile, sortColumn - 1));
+            if (!isIndexValid)
+            {
+                AddLog($"Ошибка: индекс столбца {sortColumn} выходит за пределы строк в файле.");
+                MessageBox.Show("Индекс столбца выходит за пределы строк в файле. Проверьте ключ сортировки!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            AddLog("Все проверки пройдены успешно. Начинается сортировка...");
+
             try
             {
-                await Task.Run(() => ExternalSort(inputFile, outputFile, sortColumn - 1, bufferSize));
-                AddLog($"Сортировка завершена! Результат сохранён в файле: {outputFile}");
+                await Task.Run(() => DirectMergeSort(inputFile, sortColumn - 1));
+                AddLog("Сортировка завершена успешно. Исходный файл обновлён.");
             }
             catch (Exception ex)
             {
-                AddLog($"Ошибка: {ex.Message}");
+                AddLog($"Ошибка во время сортировки: {ex.Message}");
             }
         }
 
-        private void ClearLogs_Click(object sender, RoutedEventArgs e)
+        private bool ValidateIndex(string filePath, int sortColumn)
         {
-            logs.Clear();
-            Logs.Text = string.Empty;
-        }
-
-        private void ExternalSort(string inputFile, string outputFile, int sortColumn, int bufferSize)
-        {
-            AddLog($"Читаем данные из файла: {inputFile}");
-            var tempFiles = SplitFileIntoSortedChunks(inputFile, sortColumn, bufferSize);
-            AddLog($"Создано {tempFiles.Count} временных файла для слияния.");
-
-            MergeChunks(tempFiles, outputFile, sortColumn);
-
-            foreach (var tempFile in tempFiles)
+            AddLog("Проверка валидности индекса столбца...");
+            using (var reader = new StreamReader(filePath))
             {
-                File.Delete(tempFile); // Удаляем временные файлы
-                AddLog($"Удален временный файл: {tempFile}");
-            }
-        }
-
-        private List<string> SplitFileIntoSortedChunks(string inputFile, int sortColumn, int bufferSize)
-        {
-            var tempFiles = new List<string>();
-            var linesBuffer = new List<string>();
-
-            AddLog("Начинаем разбиение файла на блоки...");
-
-            using (var reader = new StreamReader(inputFile))
-            {
-                while (!reader.EndOfStream)
+                string line;
+                while ((line = reader.ReadLine()) != null)
                 {
-                    linesBuffer.Add(reader.ReadLine());
-                    if (linesBuffer.Count == bufferSize)
+                    var fields = line.Split(',');
+                    if (sortColumn >= fields.Length)
                     {
-                        tempFiles.Add(SortAndSaveChunk(linesBuffer, sortColumn));
-                        linesBuffer.Clear();
-                    }
-                }
-
-                if (linesBuffer.Count > 0)
-                {
-                    tempFiles.Add(SortAndSaveChunk(linesBuffer, sortColumn));
-                }
-            }
-
-            AddLog("Разбиение файла завершено.");
-            return tempFiles;
-        }
-
-        private string SortAndSaveChunk(List<string> lines, int sortColumn)
-        {
-            AddLog("Сортируем текущий блок строк...");
-
-            for (int i = 0; i < lines.Count - 1; i++)
-            {
-                for (int j = 0; j < lines.Count - i - 1; j++)
-                {
-                    // Получаем значения для сравнения
-                    string value1 = lines[j].Split(',')[sortColumn].Trim();
-                    string value2 = lines[j + 1].Split(',')[sortColumn].Trim();
-                    AddLog($"Сравниваем: {value1} <=> {value2}");
-
-                    if (CompareLines(lines[j], lines[j + 1], sortColumn) > 0)
-                    {
-                        // Если порядок неверный, меняем местами
-                        AddLog($"Обмен значениями: \"{lines[j]}\" и \"{lines[j + 1]}\".");
-                        var temp = lines[j];
-                        lines[j] = lines[j + 1];
-                        lines[j + 1] = temp;
+                        AddLog($"Ошибка: индекс {sortColumn + 1} превышает количество столбцов в строке: \"{line}\".");
+                        return false;
                     }
                 }
             }
-
-            string tempFile = System.IO.Path.GetTempFileName();
-            File.WriteAllLines(tempFile, lines);
-            AddLog($"Сохранён отсортированный блок в файл: {tempFile}");
-
-            return tempFile;
+            AddLog("Индекс столбца валиден.");
+            return true;
         }
 
-        private void MergeChunks(List<string> tempFiles, string outputFile, int sortColumn)
+
+
+        private void DirectMergeSort(string inputFile, int sortColumn)
         {
-            AddLog("Начинаем слияние временных файлов...");
+            int delayMs = GetDelayFromUI();
+            AddLog("Запуск прямого слияния...");
+            int blockSize = 1; // Начальный размер блока для слияния
 
-            var readers = tempFiles.Select(file => new StreamReader(file)).ToList();
-            var priorityQueue = new SortedList<string, int>(new ChunkComparer(sortColumn));
-
-            // Инициализация очереди
-            for (int i = 0; i < readers.Count; i++)
+            while (true)
             {
-                if (!readers[i].EndOfStream)
-                {
-                    string line = readers[i].ReadLine();
-                    priorityQueue.Add(line, i);
-                }
-            }
+                AddLog($"Текущий размер блока для слияния: {blockSize}");
+                string fileB = System.IO.Path.GetTempFileName();
+                string fileC = System.IO.Path.GetTempFileName();
 
-            using (var writer = new StreamWriter(outputFile))
-            {
-                while (priorityQueue.Count > 0)
+                // Шаг 1: Разделение на два файла (B и C)
+                using (var reader = new StreamReader(inputFile))
+                using (var writerB = new StreamWriter(fileB))
+                using (var writerC = new StreamWriter(fileC))
                 {
-                    var smallest = priorityQueue.First();
-                    writer.WriteLine(smallest.Key);
-                    priorityQueue.RemoveAt(0);
-
-                    int fileIndex = smallest.Value;
-                    if (!readers[fileIndex].EndOfStream)
+                    bool toB = true;
+                    while (!reader.EndOfStream)
                     {
-                        string line = readers[fileIndex].ReadLine();
-                        priorityQueue.Add(line, fileIndex);
+                        for (int i = 0; i < blockSize && !reader.EndOfStream; i++)
+                        {
+                            var line = reader.ReadLine();
+                            if (toB)
+                            {
+                                writerB.WriteLine(line);
+                                AddLog($"Записано в файл B: {line}");
+                            }
+                            else
+                            {
+                                writerC.WriteLine(line);
+                                AddLog($"Записано в файл C: {line}");
+                            }
+                            Task.Delay(delayMs).Wait(); // Задержка
+                        }
+                        toB = !toB;
                     }
                 }
+                AddLog("Разделение завершено.");
+
+                // Шаг 2: Слияние блоков обратно в исходный файл
+                using (var readerB = new StreamReader(fileB))
+                using (var readerC = new StreamReader(fileC))
+                using (var writer = new StreamWriter(inputFile))
+                {
+                    string[] bufferB = new string[blockSize];
+                    string[] bufferC = new string[blockSize];
+                    int countB, countC;
+
+                    while (!readerB.EndOfStream || !readerC.EndOfStream)
+                    {
+                        countB = FillBuffer(readerB, bufferB);
+                        countC = FillBuffer(readerC, bufferC);
+
+                        int i = 0, j = 0;
+                        while (i < countB && j < countC)
+                        {
+                            if (CompareLines(bufferB[i], bufferC[j], sortColumn) <= 0)
+                            {
+                                writer.WriteLine(bufferB[i]);
+                                AddLog($"Из файла B записано: {bufferB[i]}");
+                                i++;
+                            }
+                            else
+                            {
+                                writer.WriteLine(bufferC[j]);
+                                AddLog($"Из файла C записано: {bufferC[j]}");
+                                j++;
+                            }
+                            Task.Delay(delayMs).Wait(); // Задержка
+                        }
+
+                        while (i < countB)
+                        {
+                            writer.WriteLine(bufferB[i]);
+                            AddLog($"Из файла B записано: {bufferB[i]}");
+                            i++;
+                            Task.Delay(delayMs).Wait(); // Задержка
+                        }
+
+                        while (j < countC)
+                        {
+                            writer.WriteLine(bufferC[j]);
+                            AddLog($"Из файла C записано: {bufferC[j]}");
+                            j++;
+                            Task.Delay(delayMs).Wait(); // Задержка
+                        }
+                    }
+                }
+
+                File.Delete(fileB);
+                File.Delete(fileC);
+
+                // Проверка завершения сортировки
+                if (IsSorted(inputFile, sortColumn))
+                {
+                    AddLog("Файл полностью отсортирован.");
+                    break;
+                }
+
+                AddLog("Файл ещё не отсортирован. Увеличиваем размер блока и переходим к следующей итерации.");
+                blockSize *= 2;
             }
 
-            foreach (var reader in readers)
-            {
-                reader.Dispose();
-            }
-
-            AddLog("Слияние временных файлов завершено.");
+            AddLog("Прямое слияние завершено. Исходный файл обновлён.");
         }
 
+        // Вспомогательный метод для заполнения буфера
+        private int FillBuffer(StreamReader reader, string[] buffer)
+        {
+            int delayMs = GetDelayFromUI();
+            int count = 0;
+            for (int i = 0; i < buffer.Length && !reader.EndOfStream; i++)
+            {
+                buffer[i] = reader.ReadLine();
+                count++;
+                Task.Delay(delayMs).Wait(); // Задержка
+            }
+            return count;
+        }
+
+        private bool IsSorted(string filePath, int sortColumn)
+        {
+            int delayMs = GetDelayFromUI();
+            using (var reader = new StreamReader(filePath))
+            {
+                string prevLine = reader.ReadLine();
+                string currLine;
+
+                while ((currLine = reader.ReadLine()) != null)
+                {
+                    if (CompareLines(prevLine, currLine, sortColumn) > 0)
+                    {
+                        AddLog($"Алгоритм продолжается, так как нашлись строки в неверном порядке: \"{prevLine}\" > \"{currLine}\".");
+                        return false;
+                    }
+                    prevLine = currLine;
+                    Task.Delay(delayMs).Wait(); // Задержка
+                }
+            }
+            return true;
+        }
+
+
+        private int GetDelayFromUI()
+        {
+            int delayMs = 0;
+
+            // Используем Dispatcher.Invoke, чтобы безопасно получить доступ к элементу UI из другого потока
+            Dispatcher.Invoke(() =>
+            {
+                // Пытаемся получить значение задержки из текстового поля
+                if (int.TryParse(Delay.Text, out delayMs) && delayMs >= 0)
+                {
+                    // Если значение корректное, присваиваем его
+                }
+                else
+                {
+                    // Если значение некорректное, задержка остается равной 0
+                    delayMs = 0;
+                }
+            });
+
+            // Возвращаем значение задержки
+            return delayMs;
+        }
         private int CompareLines(string line1, string line2, int sortColumn)
         {
             var fields1 = line1.Split(',');
@@ -226,30 +343,10 @@ namespace OuterSorting
             });
         }
 
-        private class ChunkComparer : IComparer<string>
+        private void ClearLogs_Click(object sender, RoutedEventArgs e)
         {
-            private readonly int _sortColumn;
-
-            public ChunkComparer(int sortColumn)
-            {
-                _sortColumn = sortColumn;
-            }
-
-            public int Compare(string x, string y)
-            {
-                var fieldsX = x.Split(',');
-                var fieldsY = y.Split(',');
-
-                string valueX = fieldsX[_sortColumn].Trim();
-                string valueY = fieldsY[_sortColumn].Trim();
-
-                if (double.TryParse(valueX, out double numX) && double.TryParse(valueY, out double numY))
-                {
-                    return numX.CompareTo(numY);
-                }
-
-                return string.Compare(valueX, valueY, StringComparison.OrdinalIgnoreCase);
-            }
+            logs.Clear();
+            Logs.Text = string.Empty;
         }
     }
 }

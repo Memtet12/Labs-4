@@ -29,5 +29,10 @@
 
         <!-- Очистка логов -->
         <Button Content="Очистить логи" Width="100" Height="22" HorizontalAlignment="Left" Margin="300,50,0,0" Click="ClearLogs_Click"/>
+        <Label Content="Выберите алгоритм:" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,170,0,0"/>
+        <ComboBox Name="AlgorithmSelector" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="230,170,0,0" Width="200">
+            <ComboBoxItem Content="Прямое слияние" IsSelected="True"/>
+            <ComboBoxItem Content="Естественное слияние" />
+        </ComboBox>
     </Grid>
 </Window>

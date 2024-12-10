@@ -42,7 +42,7 @@ namespace OuterSorting
                 AddLog($"Выбран файл: {dialog.FileName}");
             }
         }
-
+        private bool isSorting = false;
         private async void StartSort_Click(object sender, RoutedEventArgs e)
         {
             Logs.Text = "Начинается проверка входных данных...\n";
@@ -115,14 +115,45 @@ namespace OuterSorting
 
             AddLog("Все проверки пройдены успешно. Начинается сортировка...");
 
+            // Выбор алгоритма
+            string selectedAlgorithm = Dispatcher.Invoke(() =>
+                ((ComboBoxItem)AlgorithmSelector.SelectedItem).Content.ToString());
+
+            if (isSorting)
+            {
+                AddLog("Сортировка уже выполняется.");
+                return;
+            }
+
             try
             {
-                await Task.Run(() => DirectMergeSort(inputFile, sortColumn - 1));
+                isSorting = true; // Установить флаг
+
+                if (selectedAlgorithm == "Прямое слияние")
+                {
+                    AddLog("Выбран алгоритм: Прямое слияние.");
+                    await Task.Run(() => DirectMergeSort(inputFile, sortColumn - 1));
+                }
+                else if (selectedAlgorithm == "Естественное слияние")
+                {
+                    AddLog("Выбран алгоритм: Естественное слияние.");
+                    await Task.Run(() => NaturalMergeSort(inputFile, sortColumn - 1));
+                }
+                else
+                {
+                    AddLog($"Неизвестный алгоритм сортировки: {selectedAlgorithm}");
+                    throw new InvalidOperationException("Выбран неизвестный алгоритм сортировки.");
+                }
+
                 AddLog("Сортировка завершена успешно. Исходный файл обновлён.");
             }
             catch (Exception ex)
             {
                 AddLog($"Ошибка во время сортировки: {ex.Message}");
+            }
+            finally
+            {
+                isSorting = false; // Сбросить флаг
             }
         }
 
@@ -183,7 +214,7 @@ namespace OuterSorting
                             }
                             Task.Delay(delayMs).Wait(); // Задержка
                         }
-                        toB = !toB;
+                        toB = !toB; // Переключение файла для записи
                     }
                 }
                 AddLog("Разделение завершено.");
@@ -193,46 +224,53 @@ namespace OuterSorting
                 using (var readerC = new StreamReader(fileC))
                 using (var writer = new StreamWriter(inputFile))
                 {
-                    string[] bufferB = new string[blockSize];
-                    string[] bufferC = new string[blockSize];
-                    int countB, countC;
+                    string lineB = null, lineC = null;
 
-                    while (!readerB.EndOfStream || !readerC.EndOfStream)
+                    // Инициализация первого чтения из обоих файлов
+                    if (!readerB.EndOfStream) lineB = readerB.ReadLine();
+                    if (!readerC.EndOfStream) lineC = readerC.ReadLine();
+
+                    while (lineB != null || lineC != null)
                     {
-                        countB = FillBuffer(readerB, bufferB);
-                        countC = FillBuffer(readerC, bufferC);
+                        int blockBCount = 0, blockCCount = 0;
 
-                        int i = 0, j = 0;
-                        while (i < countB && j < countC)
+                        // Слияние двух блоков размера blockSize
+                        while (blockBCount < blockSize && blockCCount < blockSize && (lineB != null || lineC != null))
                         {
-                            if (CompareLines(bufferB[i], bufferC[j], sortColumn) <= 0)
+                            if (lineC == null || (lineB != null && CompareLines(lineB, lineC, sortColumn) <= 0))
                             {
-                                writer.WriteLine(bufferB[i]);
-                                AddLog($"Из файла B записано: {bufferB[i]}");
-                                i++;
+                                writer.WriteLine(lineB);
+                                AddLog($"Из файла B записано: {lineB}");
+                                lineB = !readerB.EndOfStream ? readerB.ReadLine() : null;
+                                blockBCount++;
                             }
                             else
                             {
-                                writer.WriteLine(bufferC[j]);
-                                AddLog($"Из файла C записано: {bufferC[j]}");
-                                j++;
+                                writer.WriteLine(lineC);
+                                AddLog($"Из файла C записано: {lineC}");
+                                lineC = !readerC.EndOfStream ? readerC.ReadLine() : null;
+                                blockCCount++;
                             }
                             Task.Delay(delayMs).Wait(); // Задержка
                         }
 
-                        while (i < countB)
+                        // Дописываем оставшиеся строки из текущего блока файла B
+                        while (blockBCount < blockSize && lineB != null)
                         {
-                            writer.WriteLine(bufferB[i]);
-                            AddLog($"Из файла B записано: {bufferB[i]}");
-                            i++;
+                            writer.WriteLine(lineB);
+                            AddLog($"Из файла B записано: {lineB}");
+                            lineB = !readerB.EndOfStream ? readerB.ReadLine() : null;
+                            blockBCount++;
                             Task.Delay(delayMs).Wait(); // Задержка
                         }
 
-                        while (j < countC)
+                        // Дописываем оставшиеся строки из текущего блока файла C
+                        while (blockCCount < blockSize && lineC != null)
                         {
-                            writer.WriteLine(bufferC[j]);
-                            AddLog($"Из файла C записано: {bufferC[j]}");
-                            j++;
+                            writer.WriteLine(lineC);
+                            AddLog($"Из файла C записано: {lineC}");
+                            lineC = !readerC.EndOfStream ? readerC.ReadLine() : null;
+                            blockCCount++;
                             Task.Delay(delayMs).Wait(); // Задержка
                         }
                     }
@@ -255,18 +293,120 @@ namespace OuterSorting
             AddLog("Прямое слияние завершено. Исходный файл обновлён.");
         }
 
-        // Вспомогательный метод для заполнения буфера
-        private int FillBuffer(StreamReader reader, string[] buffer)
+        private void NaturalMergeSort(string inputFile, int sortColumn)
         {
             int delayMs = GetDelayFromUI();
-            int count = 0;
-            for (int i = 0; i < buffer.Length && !reader.EndOfStream; i++)
+            AddLog("Запуск естественного слияния...");
+
+            while (true)
             {
-                buffer[i] = reader.ReadLine();
-                count++;
-                Task.Delay(delayMs).Wait(); // Задержка
+                string fileB = System.IO.Path.GetTempFileName();
+                string fileC = System.IO.Path.GetTempFileName();
+
+                // Шаг 1: Разбиение на серии
+                using (var reader = new StreamReader(inputFile))
+                using (var writerB = new StreamWriter(fileB))
+                using (var writerC = new StreamWriter(fileC))
+                {
+                    bool toB = true;
+                    string prevLine = reader.ReadLine();
+                    var currentSeries = new List<string> { prevLine }; // Для хранения текущей серии
+
+                    while (!reader.EndOfStream)
+                    {
+                        string currLine = reader.ReadLine();
+                        if (CompareLines(prevLine, currLine, sortColumn) > 0)
+                        {
+                            // Закончилась текущая серия, записываем её
+                            if (toB)
+                            {
+                                foreach (var line in currentSeries)
+                                {
+                                    writerB.WriteLine(line);
+                                }
+                                AddLog($"Серия {currentSeries.Count}: {string.Join(", ", currentSeries)} записана в файл B");
+                            }
+                            else
+                            {
+                                foreach (var line in currentSeries)
+                                {
+                                    writerC.WriteLine(line);
+                                }
+                                AddLog($"Серия {currentSeries.Count}: {string.Join(", ", currentSeries)} записана в файл C");
+                            }
+
+                            // Меняем файл и начинаем новую серию
+                            toB = !toB;
+                            currentSeries.Clear();
+                        }
+
+                        currentSeries.Add(currLine);
+                        prevLine = currLine;
+                        Task.Delay(delayMs).Wait(); // Задержка
+                    }
+
+                    // Записываем последнюю серию
+                    if (toB)
+                    {
+                        foreach (var line in currentSeries)
+                        {
+                            writerB.WriteLine(line);
+                        }
+                        AddLog($"Серия {currentSeries.Count}: {string.Join(", ", currentSeries)} записана в файл B");
+                    }
+                    else
+                    {
+                        foreach (var line in currentSeries)
+                        {
+                            writerC.WriteLine(line);
+                        }
+                        AddLog($"Серия {currentSeries.Count}: {string.Join(", ", currentSeries)} записана в файл C");
+                    }
+                }
+
+                AddLog("Разбиение на серии завершено.");
+
+                // Шаг 2: Слияние
+                using (var readerB = new StreamReader(fileB))
+                using (var readerC = new StreamReader(fileC))
+                using (var writer = new StreamWriter(inputFile))
+                {
+                    string lineB = readerB.ReadLine();
+                    string lineC = readerC.ReadLine();
+
+                    while (lineB != null || lineC != null)
+                    {
+                        if (lineC == null || (lineB != null && CompareLines(lineB, lineC, sortColumn) <= 0))
+                        {
+                            writer.WriteLine(lineB);
+                            AddLog($"Из файла B записано: {lineB}");
+                            lineB = readerB.EndOfStream ? null : readerB.ReadLine();
+                        }
+                        else
+                        {
+                            writer.WriteLine(lineC);
+                            AddLog($"Из файла C записано: {lineC}");
+                            lineC = readerC.EndOfStream ? null : readerC.ReadLine();
+                        }
+
+                        Task.Delay(delayMs).Wait(); // Задержка
+                    }
+                }
+
+                File.Delete(fileB);
+                File.Delete(fileC);
+
+                // Проверка завершения сортировки
+                if (IsSorted(inputFile, sortColumn))
+                {
+                    AddLog("Файл полностью отсортирован.");
+                    break;
+                }
+
+                AddLog("Файл ещё не отсортирован. Переходим к следующей итерации.");
             }
-            return count;
+
+            AddLog("Естественное слияние завершено. Исходный файл обновлён.");
         }
 
         private bool IsSorted(string filePath, int sortColumn)
